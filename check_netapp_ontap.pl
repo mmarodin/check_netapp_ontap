@@ -16,7 +16,11 @@
 #   in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 #   PARTICULAR PURPOSE. See the GNU General Public License for more details. You should have received a copy of the GNU General Public
 #   License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Added warning and critical performance data for Volume Health check by mmarodin (20181017)
+# https://github.com/mmarodin/check_netapp_ontap
 
+use lib '/usr/share/perl5/NetApp';
 use warnings;
 use strict;
 use NaServer;
@@ -1551,6 +1555,15 @@ sub calc_space_health {
 	my $strOutput;
 	my $perfOutput;
 	my $hrefObjectState;
+	my $percentWarn;
+	my $percentCrit;
+
+	if (chop($strWarning) eq "%") {
+		$percentWarn=$strWarning;
+	}
+	if (chop($strCritical) eq "%") {
+		$percentCrit=$strCritical;
+	}
 
 	foreach my $strObj (keys %$hrefSpaceInfo) {
 		$intObjectCount = $intObjectCount + 1;
@@ -1601,8 +1614,8 @@ sub calc_space_health {
 
 	# Test to see if the monitored object has crossed a defined space threshhold.
 	unless ( (defined($hrefCritThresholds->{'strings'}) && @{$hrefCritThresholds->{'strings'}}) || (defined($hrefWarnThresholds->{'strings'}) && @{$hrefWarnThresholds->{'strings'}}) || $hrefWarnThresholds->{'owner'} || $hrefCritThresholds->{'owner'} ) {
-		($intState, $strOutput, $perfOutput, $hrefSpaceInfo) = space_threshold_helper($intState, $strOutput, $hrefSpaceInfo, $hrefCritThresholds, 2);
-		($intState, $strOutput, $perfOutput, $hrefSpaceInfo) = space_threshold_helper($intState, $strOutput, $hrefSpaceInfo, $hrefWarnThresholds, 1);
+		($intState, $strOutput, $perfOutput, $hrefSpaceInfo) = space_threshold_helper($intState, $strOutput, $hrefSpaceInfo, $hrefCritThresholds, 2, $percentWarn, $percentCrit);
+		($intState, $strOutput, $perfOutput, $hrefSpaceInfo) = space_threshold_helper($intState, $strOutput, $hrefSpaceInfo, $hrefWarnThresholds, 1, $percentWarn, $percentCrit);
 	}
 
 
@@ -1623,7 +1636,7 @@ sub calc_space_health {
 
 sub space_threshold_helper {
 	# Test the various monitored object values against the thresholds provided by the user.
-	my ($intState, $strOutput, $hrefVolInfo, $hrefThresholds, $intAlertLevel) = @_;
+	my ($intState, $strOutput, $hrefVolInfo, $hrefThresholds, $intAlertLevel, $perWarning, $perCritical) = @_;
 
 	my $perfOutput = "";
 	my $perfOutputFinal = " | ";
@@ -1654,7 +1667,15 @@ sub space_threshold_helper {
 				my $strNewMessage = $strVol . " - " . $strReadableUsed . "/" . $strReadableTotal . " (" . $intUsedPercent . "%) SPACE USED";
 
 				if ($intAlertLevel == 1) {
-					$perfOutput .= "'" . $strVol . "_usage'=" . $hrefVolInfo->{$strVol}->{'space-used'} . "B;;;0;" . $hrefVolInfo->{$strVol}->{'space-total'} . " ";
+					my $spaceWarning="";
+					my $spaceCritical="";
+					if ($perWarning > 0) {
+						$spaceWarning=ceil($hrefVolInfo->{$strVol}->{'space-total'}/100*$perWarning);
+					}
+					if ($perCritical > 0) {
+						$spaceCritical=ceil($hrefVolInfo->{$strVol}->{'space-total'}/100*$perCritical);
+					}
+					$perfOutput .= "'" . $strVol . "_usage'=" . $hrefVolInfo->{$strVol}->{'space-used'} . "B;" . $spaceWarning . ";" . $spaceCritical . ";0;" . $hrefVolInfo->{$strVol}->{'space-total'} . " ";
 				}
 
 				if (defined($hrefThresholds->{'space-percent'}) && defined($hrefThresholds->{'space-count'})) {
