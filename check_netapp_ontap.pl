@@ -17,7 +17,8 @@
 #   PARTICULAR PURPOSE. See the GNU General Public License for more details. You should have received a copy of the GNU General Public
 #   License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# Added warning and critical performance data for Volume Health check by mmarodin (20181017)
+# Added warning and critical performance data for Volume Health check (by mmarodin 20181017)
+# Printing performance data also when Volume Health is in critical state (by mmarodin 20181017)
 # https://github.com/mmarodin/check_netapp_ontap
 
 use lib '/usr/share/perl5/NetApp';
@@ -1667,6 +1668,7 @@ sub space_threshold_helper {
 				my $strNewMessage = $strVol . " - " . $strReadableUsed . "/" . $strReadableTotal . " (" . $intUsedPercent . "%) SPACE USED";
 
 				if ($intAlertLevel == 1) {
+					# Feature request: Add performance data to volume_health (issue #47)
 					my $spaceWarning="";
 					my $spaceCritical="";
 					if ($perWarning > 0) {
@@ -1761,7 +1763,8 @@ sub space_threshold_helper {
 
 			# Remove problems from list so that it's not altered by further monitoring (I.e. warnings overwriting critical problems)
 			if ($bMarkedForRemoval) {
-				delete($hrefVolInfo->{$strVol});
+				# Space Health perf data not working when critical (issue #74)
+				#delete($hrefVolInfo->{$strVol});
 			}
 		}
 	}
